@@ -3,7 +3,7 @@ a set of scripts for batch-renaming images using EXIF Data and other sources
 
 The aim of these scripts is to rename images to the format
 
-'YYYY-MM-DD hh.mm.ss Description'
+`YYYY-MM-DD hh.mm.ss Description`
 
 in order to facilitate sharing pictures with friends and having them all in chronological order!
 
