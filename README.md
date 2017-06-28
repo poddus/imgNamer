@@ -11,4 +11,6 @@ All scripts in this suite accept folders as input. They are invoked using the sy
 
 `python [path to script] [path to folder containing images]`
 
-They contain practically no exception handling
+They contain practically no exception handling.
+
+Dependency of datetime_files_EXIF.py is the Python module [ExifRead](https://pypi.python.org/pypi/ExifRead)
