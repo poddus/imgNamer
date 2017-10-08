@@ -1,4 +1,4 @@
-# python 3.6
+# python 2.7
 
 import glob, re, os, sys, datetime, exifread
 from argparse import ArgumentParser
@@ -10,7 +10,7 @@ args = parser.parse_args()
 directory = args.folder
 os.chdir(directory)
 
-description = input("Enter a description of the pictures. otherwise, press Return ")
+description = raw_input("Enter a description of the pictures. otherwise, press Return ")
 
 for file in glob.glob('*'):
 	filename, file_extension = os.path.splitext(file)
@@ -28,11 +28,11 @@ for file in glob.glob('*'):
 	# if the description is blank, we don't want the leading space
 	if(description == ""):
 		if os.path.isfile(cleanDate + file_extension):
-			print("file exists! skipping...")
+			print "file exists! skipping..."
 		else:
 			os.rename(file, cleanDate + file_extension)
 	else:
 		if os.path.isfile(cleanDate + " " + description + file_extension):
-			print("file exists! skipping...")
+			print "file exists! skipping..."
 		else:
 			os.rename(file, cleanDate + " " + description + file_extension)

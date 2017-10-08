@@ -1,6 +1,6 @@
-# python 3.6
+# python 3
 
-import glob, re, os, sys, datetime, exifread
+import subprocess, glob, re, os, sys
 from argparse import ArgumentParser
 
 parser = ArgumentParser(description='rename images to the format YYYY-MM-DD hh.mm.ss Description. Uses on exifread module')
@@ -14,16 +14,23 @@ description = input("Enter a description of the pictures. otherwise, press Retur
 
 for file in glob.glob('*'):
 	filename, file_extension = os.path.splitext(file)
+
+	tags = subprocess.run(
+	['ffprobe',
+	'-show_entries', 'format_tags',
+	'-v', '-8',
+	'-of', 'flat',
+	os.path.abspath(file)],
+	check=True, stdout=subprocess.PIPE, encoding="utf-8"
+	).stdout
 	
-	# read image (binary mode), get EXIF info
-	binImage = open(file, 'rb')
-	tags = exifread.process_file(binImage)
-	
-	date = tags['EXIF DateTimeOriginal']
-	
+	date = re.search('date="(.*)"', tags).group(1)
+	time = re.search('ICRT="(.*)"', tags).group(1)
+
+	date = date + ' ' + time
+
 	# replace special characters
-	cleanDate = re.sub(':', '', str(date))
-	cleanDate = re.sub('(^\d{4})(\d{2})(\d{2})(\s)(\d{2})(\d{2})(\d{2})', r'\1-\2-\3 \5.\6.\7', cleanDate)
+	cleanDate = re.sub(':', '.', str(date))
 	
 	# if the description is blank, we don't want the leading space
 	if(description == ""):
