@@ -1,4 +1,10 @@
-import glob, re, os, sys, datetime, exifread
+import glob
+import re
+import os
+import sys
+import datetime
+import exifread
+import subprocess
 from argparse import ArgumentParser
 
 parser = ArgumentParser(description='rename images to the format YYYY-MM-DD hh.mm.ss Description.')
@@ -9,13 +15,14 @@ directory = args.folder
 os.chdir(directory)
 
 def alt():
-	print('ERROR: ' + file + ' does not contain date/time data!')
+	# perhaps its useful to simply increment the last value
+	print('ERROR: ' + file + ' does not contain timestamp!')
 	while True:
-		answer = input('do you want to die? y/n')
+		answer = input('do you want to increment the last timestamp?\n' + str(lastStamp))
 		if answer == 'y':
 			exit()
 		elif answer == 'n':
-			print('shart.')
+			print('tough luck.')
 			exit()
 		else:
 			print('only "y" or "n"')
@@ -44,6 +51,44 @@ def fromEXIF(file):
 
 	return str(date)
 
+def fromAVI(file):
+	### use ffprobe to extract date and time values from a .avi file
+
+	tags = subprocess.run(
+	['ffprobe',
+	'-show_entries', 'format_tags',
+	'-v', '-8',
+	'-of', 'flat',
+	os.path.abspath(file)],
+	check=True, stdout=subprocess.PIPE, encoding="utf-8"
+	).stdout
+
+	date = re.search('date="(.*)"', tags).group(1)
+	date = re.sub('\D', '', date)
+
+	time = re.search('ICRT="(.*)"', tags).group(1)
+	time = re.sub('\D', '', time)
+
+	return date + time
+
+def fromMOV(file):
+	tags = subprocess.run(
+	['ffprobe',
+	'-show_entries', 'format_tags',
+	'-v', '-8',
+	'-of', 'flat',
+	os.path.abspath(file)],
+	check=True, stdout=subprocess.PIPE, encoding="utf-8"
+	).stdout
+
+	stamp = re.search('creation_time=(.*)', tags).group(1)
+	# remove trailing timezome information
+	stamp = re.sub('\..*', '', stamp)
+	# convert to YYYYMMDDHHMMSS format
+	stamp = re.sub('\D', '', stamp)
+
+	return stamp
+
 def get_stamp(file, filename, ext):
 	# return a datetime instance
 
@@ -59,13 +104,19 @@ def get_stamp(file, filename, ext):
 			alt()
 
 	elif ext in interleaved:
-		pass
+		try:
+			stamp = fromAVI(file)
+		except KeyError:
+			alt()
 
 	elif ext in QTFF:
-		pass
+		try:
+			stamp = fromMOV(file)
+		except KeyError:
+			alt()
 
-	elif ext == '.mts':
-		pass
+	elif ext == '.MTS':
+		alt()
 
 	else:
 		print('file type not recognized! skipping...')
@@ -83,11 +134,12 @@ descr = input('Enter a description of the pictures. otherwise, press Return ')
 if descr != '':
 	descr = ' ' + descr
 
+lastStamp = ''
 for file in glob.glob('*'):
 	filename, ext = os.path.splitext(file)
 
 	stamp = get_stamp(file, filename, ext)
-
+	lastStamp = stamp
 	# while True:
 	# 	if check_exists(stamp, descr, ext) == True:
 	# 		# if a file already exists which has the same timestamp, increment
