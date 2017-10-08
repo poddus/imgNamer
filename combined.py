@@ -16,24 +16,32 @@ os.chdir(directory)
 
 def alt(fName, WA=False):
 	# perhaps its useful to simply increment the last value
+
+	stamp = ''
 	if WA is True:
-		fName = re.sub(r'IMG-(\d{4})(\d{2})(\d{2})-(WA\d{4})', r'\1-\2-\3 \4', filename)
+		fName = re.sub(r'IMG-(\d{4})(\d{2})(\d{2})-(WA\d{4})', r'\1-\2-\3 \4', fName)
 	else:
 		print('ERROR: ' + file + ' does not contain timestamp!')
-		while True:
-			answer = input('do you want to increment the last timestamp?\n' + str(lastStamp))
-			if answer == 'y':
-				exit()
-			elif answer == 'n':
-				print('tough luck.')
-				exit()
-			else:
-				print('only "y" or "n"')
-	# return new name as stamp
-	return fName
+		if lastStamp == '':
+			print('oh no!')
+			exit()
+		else:
+			while True:
+				answer = input('do you want to increment the last timestamp:\n' + lastStamp.strftime('%Y-%m-%d %H.%M.%S') + ' ?  ')
+				if answer == 'y':
+					stamp = lastStamp + datetime.timedelta(seconds=1)
+					fName = ''
+					break
+				elif answer == 'n':
+					print('sorry, bro. can\'t help you')
+					exit()
+				else:
+					print('only "y" or "n"')
+
+	return stamp, fName
 
 def convert_to_date(stamp):
-	### take str in the format "YYYYMMDDHHMMSS" and convert to datetime instance
+	"""take str in the format "YYYYMMDDHHMMSS" and convert to datetime instance"""
 	match = re.search(r'(^\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})', stamp)
 	return datetime.datetime(
 		int(match.group(1)),
@@ -50,17 +58,14 @@ def fromEXIF(f):
 	binImage = open(f, 'rb')
 	tags = exifread.process_file(binImage)
 	
-	date = tags['EXIF DateTimeOriginal']
-	date = re.sub(':', '', str(date))
-	date = re.sub(' ', '', str(date))
+	stamp = tags['EXIF DateTimeOriginal']
+	stamp = re.sub(':', '', str(stamp))
+	stamp = re.sub(' ', '', str(stamp))
 
-	return str(date)
-
-def fromWA(f):
-	pass
+	return str(stamp)
 
 def fromAVI(f):
-	### use ffprobe to extract date and time values from a .avi file
+	"""use ffprobe to extract date and time values from a .avi file"""
 
 	tags = subprocess.run(
 	['ffprobe',
@@ -98,10 +103,13 @@ def fromMOV(f):
 	return stamp
 
 def get_stamp(f, fName, ext):
-	# return a datetime instance
+	"""create timestamp and clear filename if possible, else change filename
 
-	# some files do not have date time information
-	isDT = False
+	setting the filename to empty string acts as a signal that a valid timestamp exists
+	"""
+
+	success = False
+
 	# define valid extensions
 	EXIFfiles = ['.jpg', '.JPG', '.jpeg', '.JPEG']
 	AVIfiles = ['.avi', '.AVI']
@@ -109,66 +117,67 @@ def get_stamp(f, fName, ext):
 
 	if ext in EXIFfiles:
 		if re.search(r'IMG-\d{8}-WA\d{4}', fName):
-			stamp = alt(fName, True)
+			stamp, fName = alt(fName, True)
+			success = False
 		else:
 			try:
 				stamp = fromEXIF(f)
-				isDT = True
+				success = True
 			except KeyError:
-				stamp = alt(fName)
+				stamp, fName = alt(fName)
 
 	elif ext in AVIfiles:
 		try:
 			stamp = fromAVI(f)
-			isDT = True
+			success = True
 		except KeyError:
-			stamp = alt(fName)
+			stamp, fName = alt(fName)
 
 	elif ext in QTFF:
 		try:
 			stamp = fromMOV(f)
-			isDT = True
+			success = True
 		except KeyError:
-			stamp = alt(fName)
+			stamp, fName = alt(fName)
 
 	elif ext == '.MTS':
-		stamp = alt(fName)
+		pass
 
 	else:
 		print('file type not recognized!')
 		exit(1)
 
-	if isDT is True:
-		return convert_to_date(stamp), True
+	if success == False:
+		# in this situation, stamp is either already a valid datetime instance, or empty string
+		return stamp, fName
 	else:
-		return stamp, False
-
-
-def rename(stamp, descr, ext, isDT):
-	if isDT is True:
-		os.rename(file, stamp.strftime('%Y-%m-%d %H.%M.%S') + descr + ext)
-	else:
-		os.rename(file, stamp + descr + ext)
+		fName = ''
+		return convert_to_date(stamp), fName
 
 def check_exists(stamp, descr, ext):
 	if os.path.isfile(str(stamp) + descr + ext):
 		pass
 		# increment stamp
 
-####################################################################################################
-description = input('Enter a description of the pictures. otherwise, press Return ')
+########################################################################################################
+description = input('Enter a description of the pictures (may be blank), then press Return  ')
 # unless the description is blank, we want a leading space
 if description != '':
 	description = ' ' + description
 
+# keep the last valid stamp as a buffer in order to be able to increment for a file with no valid timestamp
 lastStamp = ''
+
 for file in glob.glob('*'):
 	filename, extension = os.path.splitext(file)
 
-	timeStamp, isDateTime = get_stamp(file, filename, extension)
+	timeStamp, filename = get_stamp(file, filename, extension)
 
-	if isDateTime is True:
+	if filename == '':
 		lastStamp = timeStamp
+		os.rename(file, timeStamp.strftime('%Y-%m-%d %H.%M.%S') + description + extension)
+	else:
+		os.rename(file, filename + description + extension)
 
 	# while True:
 	# 	if check_exists(stamp, descr, ext) == True:
@@ -176,5 +185,3 @@ for file in glob.glob('*'):
 	# 		# if this is also taken, maybe append counter?
 	# 		pass
 	# else:
-
-	rename(timeStamp, description, extension, isDateTime)
