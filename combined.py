@@ -15,7 +15,13 @@ directory = args.folder
 os.chdir(directory)
 
 def alt(fName, WA=False):
-	# perhaps its useful to simply increment the last value
+	"""returns an alternate name for a file which does not contain EXIF data
+
+	the WA flag is set if the picture was taken in WhatsApp.
+	these files do not contain EXIF data, but they contain a date stamp in the filename
+	"""
+
+	# perhaps its useful to simply increment the last value?
 
 	stamp = ''
 	if WA is True:
@@ -53,7 +59,7 @@ def convert_to_date(stamp):
 		)
 
 def fromEXIF(f):
-	
+	"""read EXIF data, return str in the format "YYYYMMDDHHMMSS'"""
 	# read image (binary mode), get EXIF info
 	binImage = open(f, 'rb')
 	tags = exifread.process_file(binImage)
@@ -62,10 +68,11 @@ def fromEXIF(f):
 	stamp = re.sub(':', '', str(stamp))
 	stamp = re.sub(' ', '', str(stamp))
 
+	## does this have to be explicitly str?
 	return str(stamp)
 
 def fromAVI(f):
-	"""use ffprobe to extract date and time values from a .avi file"""
+	"""use ffprobe to extract date and time values from a .avi file, return str in the format 'YYYYMMDDHHMMSS'"""
 
 	tags = subprocess.run(
 	['ffprobe',
@@ -84,7 +91,7 @@ def fromAVI(f):
 
 	return date + time
 
-def fromMOV(f):
+def fromMP4(f):
 	tags = subprocess.run(
 	['ffprobe',
 	'-show_entries', 'format_tags',
@@ -95,7 +102,7 @@ def fromMOV(f):
 	).stdout
 
 	stamp = re.search('creation_time=(.*)', tags).group(1)
-	# remove trailing timezome information
+	# remove trailing timezone information
 	stamp = re.sub(r'\..*', '', stamp)
 	# convert to YYYYMMDDHHMMSS format
 	stamp = re.sub(r'\D', '', stamp)
@@ -113,7 +120,7 @@ def get_stamp(f, fName, ext):
 	# define valid extensions
 	EXIFfiles = ['.jpg', '.JPG', '.jpeg', '.JPEG']
 	AVIfiles = ['.avi', '.AVI']
-	QTFF = ['.mov', '.MOV']
+	MP4files = ['.mp4', '.MP4', '.mov', '.MOV']
 
 	if ext in EXIFfiles:
 		if re.search(r'IMG-\d{8}-WA\d{4}', fName):
@@ -133,9 +140,9 @@ def get_stamp(f, fName, ext):
 		except KeyError:
 			stamp, fName = alt(fName)
 
-	elif ext in QTFF:
+	elif ext in MP4files:
 		try:
-			stamp = fromMOV(f)
+			stamp = fromMP4(f)
 			success = True
 		except KeyError:
 			stamp, fName = alt(fName)
