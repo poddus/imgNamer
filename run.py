@@ -7,7 +7,12 @@ import sys
 import datetime
 import exifread
 import subprocess
+import logging
 from argparse import ArgumentParser
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARNING)
+logger.addHandler(logging.StreamHandler())
 
 def convert_to_date(stamp):
     """take str in the format "YYYYMMDDHHMMSS"
@@ -141,6 +146,50 @@ def get_timestamp(fBundle, lastStamp):
 
     return fBundle
 
+def check_and_increment(fBundle):
+    newFile = '{}{}{}'.format(
+        fBundle['tStamp'].strftime('%Y-%m-%d %H.%M.%S'),
+        fBundle['descr'],
+        fBundle['ext']
+        )
+
+    firstFile = '{} 00{}{}'.format(
+        fBundle['tStamp'].strftime('%Y-%m-%d %H.%M.%S'),
+        fBundle['descr'],
+        fBundle['ext']
+        )
+
+    if not os.path.exists(newFile) and not os.path.exists(firstFile):
+        logger.debug('new file: {}\n'.format(newFile))
+        return newFile
+
+    cwd = os.getcwd()
+    ls = set(os.listdir(cwd))
+    index = 1
+
+    def gen_cand():
+        return '{} {}{}{}'.format(
+            fBundle['tStamp'].strftime('%Y-%m-%d %H.%M.%S'),
+            str(index).zfill(2),
+            fBundle['descr'],
+            fBundle['ext']
+            )
+    if not os.path.exists(firstFile):
+        logger.debug('previous file to: {}'.format(firstFile))
+        os.rename(newFile, firstFile)
+        newFile = gen_cand()
+        logger.debug('current file to:  {}\n'.format(newFile))
+        return newFile
+
+    newFile = gen_cand()
+    logger.debug('--------------\ngenerating candidates')
+    while newFile in ls:
+        logger.debug('candidate: {}'.format(newFile))
+        newFile = gen_cand()
+        index += 1
+    logger.debug('chosen:    {}\n'.format(newFile))
+    return newFile
+
 ################################################################################
 def parse_arguments():
     parser = ArgumentParser(description='rename images to the '
@@ -170,26 +219,10 @@ def main(directory):
         fBundle = get_timestamp(fBundle, lastStamp)
         lastStamp = fBundle['tStamp']
 
-        if fBundle['tStamp']:
-            while True:
-                newFile = (fBundle['tStamp'].strftime('%Y-%m-%d %H.%M.%S')
-                           + fBundle['fName']
-                           + fBundle['descr']
-                           + fBundle['ext']
-                           )
-                if os.path.isfile(newFile):
-                    print('existing file:', newFile)
-                    increment_stamp(fBundle, fBundle['tStamp'])
-                else:
-                    break
-        else:
-            newFile = (fBundle['fName']
-                       + fBundle['descr']
-                       + fBundle['ext']
-                       )
-
+        if not fBundle['tStamp']:
+            increment_stamp(fBundle, lastStamp)
         
-        os.rename(file, newFile)
+        os.rename(file, check_and_increment(fBundle))
 
 if __name__ == '__main__':
     args = parse_arguments()

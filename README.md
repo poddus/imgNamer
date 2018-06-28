@@ -13,4 +13,14 @@ All scripts in this suite accept folders as input. They are invoked using the sy
 
 They contain practically no exception handling.
 
-Dependency of datetime_files_EXIF.py is the Python module [ExifRead](https://pypi.python.org/pypi/ExifRead)
+Dependency is the Python module [ExifRead](https://pypi.python.org/pypi/ExifRead)
+
+```shell
+pip install exifread
+```
+
+and ffmpeg.
+
+```shell
+brew install ffmpeg
+```
