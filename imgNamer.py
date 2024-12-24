@@ -11,7 +11,7 @@ import logging
 from argparse import ArgumentParser
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.WARNING)
+logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler())
 
 def convert_to_date(stamp):
@@ -30,11 +30,12 @@ def convert_to_date(stamp):
 
 def increment_stamp(fBundle, lastStamp):
     if not lastStamp:
-        exit('we have no timestamp to increment. '
+        exit(fBundle['fName'] + fBundle['ext'] + '\n'
+            'we have no timestamp to increment. ' +
              'unable to recover. exiting...')
     
     newStamp = lastStamp + datetime.timedelta(seconds=1)
-    print('new timestamp:',
+    logger.warning('new timestamp:',
           newStamp.strftime('%Y-%m-%d %H.%M.%S'),
           '\n'
           )
@@ -135,11 +136,12 @@ def get_timestamp(fBundle, lastStamp):
     elif fBundle['ext'] in MP4files:
         fBundle = from_MP4(fBundle)
     else:
-        print('file type not recognized!')
+        logger.error('file type not recognized!')
+        logger.error(fBundle['fName'] + fBundle['ext'])
         exit(1)
 
     if fBundle['alt']:
-        print('ERROR: ' + fBundle['f'] + ' does not contain timestamp!')
+        logger.warning('WARNING: ' + fBundle['f'] + ' does not contain timestamp!')
         increment_stamp(fBundle, lastStamp)
         # keep filename, denote incrementation with 'i'
         fBundle['fName'] = ' i '
