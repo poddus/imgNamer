@@ -39,7 +39,7 @@ def timestamp_from_name(currentFile) -> str:
     if re.search(r'^\d{8}_\d{6}', currentFile.fileStem):
         logger.debug(f'found default timestamp for file {currentFile.basename}')
         return re.sub(
-            r'^[a-zA-Z]{3}(\d{8})_(\d{6})',
+            r'^[a-zA-Z]{3}(\d{8})_(\d{6}).*',
             r'\1\2',
             currentFile.fileStem
             )
@@ -48,7 +48,7 @@ def timestamp_from_name(currentFile) -> str:
     elif re.search(r'^[a-zA-Z]{3}_\d{8}_\d{6}', currentFile.fileStem):
         logger.debug(f'found prefixed timestamp for file {currentFile.basename}')
         return re.sub(
-            r'^[a-zA-Z]{3}_(\d{8})_(\d{6})',
+            r'^[a-zA-Z]{3}_(\d{8})_(\d{6}).*',
             r'\1\2',
             currentFile.fileStem
             )
