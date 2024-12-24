@@ -3,9 +3,6 @@
 import re
 import os
 from glob import glob
-import sys
-from datetime import datetime, timedelta
-from threading import currentThread
 import exifread
 import subprocess
 import logging
@@ -140,7 +137,7 @@ def timestamp_from_exif(currentFile) -> str:
                 return stamp
     except KeyError:
         logger.warning('no time stamp in exif data '
-                       'for file {}!').format(currentFile.basename)
+                       'for file {}!'.format(currentFile.basename))
         return ''
 
 def set_new_name(currentFile) -> str:
