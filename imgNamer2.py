@@ -23,54 +23,54 @@ def timestamp_from_name(currentFile) -> str:
     if logger.isEnabledFor(logging.DEBUG):
         # sony cybershot
         if re.search(r'^DSC', currentFile.fileStem):
-            logger.debug(f'file {currentFile.basename} is probably '
-                          'from a Sony Cybershot and should have exif data')
+            logger.debug(f'{currentFile.basename} is probably '
+                          'from a Sony Cybershot and should have exif data. '
+                          'sometimes these cameras do not have their clocks set properly.')
         # Apple iPhone LivePhoto
         elif currentFile.fileType == 'mp4' and re.search(r'^IMG_\d{4}', currentFile.fileStem):
-            logger.warning(f'file {currentFile.basename} is probably '
-                          'from an iPhone with "Live Photo" function enabled.'
+            logger.warning(f'{currentFile.basename} is probably '
+                          'from an iPhone with "Live Photo" function enabled. '
                           'these video files may have erroneous exif data!')
 
     # timestamp name without 3-letter prefix.
     # this is the default for most android distros
     if re.search(r'^\d{8}_\d{6}', currentFile.fileStem):
-        logger.debug(f'found default timestamp for file {currentFile.basename}')
+        logger.debug(f'found default timestamp in file stem of {currentFile.basename}')
         return re.sub(
-            r'^[a-zA-Z]{3}(\d{8})_(\d{6}).*',
+            r'(\d{8})_(\d{6})$',
             r'\1\2',
             currentFile.fileStem
             )
     # timestamp name with 3-letter prefix (i.e. 'IMG', 'VID', 'PXL')
     # also common in android distros
     elif re.search(r'^[a-zA-Z]{3}_\d{8}_\d{6}', currentFile.fileStem):
-        logger.debug(f'found prefixed timestamp for file {currentFile.basename}')
+        logger.debug(f'found prefixed timestamp in file stem of {currentFile.basename}')
         return re.sub(
-            r'^[a-zA-Z]{3}_(\d{8})_(\d{6}).*',
+            r'^[a-zA-Z]{3}_(\d{8})_(\d{6})$',
             r'\1\2',
             currentFile.fileStem
             )
     # already processed by old script (periods in time)
-    elif re.search(r'^\d{4}-\d{2}-\d{2} \d{2}.\d{2}.\d{2}', currentFile.fileStem):
-        logger.debug(f'file {currentFile.basename} has probably '
-                      'already been processed by this script previously.')
+    elif re.search(r'^\d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}', currentFile.fileStem):
+        logger.debug(f'{currentFile.basename} has probably '
+                      'already been processed by an old version of '
+                      'this script previously.')
         return re.sub(
             r'^(\d{4})-(\d{2})-(\d{2}) (\d{2}).(\d{2}).(\d{2})',
             r'\1\2\3\4\5\6',
             currentFile.fileStem)
     # already processed by current script (hyphens in time)
     elif re.search(r'^\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}', currentFile.fileStem):
-        logger.debug(f'file {currentFile.basename} has probably '
-                      'already been processed by this script previously.')
-        return re.sub(
-            r'^(\d{4})-(\d{2})-(\d{2}) (\d{2})-(\d{2})-(\d{2})',
-            r'\1\2\3\4\5\6',
-            currentFile.fileStem)
+        logger.info(f'{currentFile.basename} has probably '
+                      'already been processed by this script previously. '
+                      'this file will not be processed further.\n')
+        return 'DO_NOT_PROCESS'
     # WhatsApp Image
     # this does not yield a complete YYYYMMDDHHMMSS time stamp
     # but it's the best we've got. returns time stamp in format
     # 'YYYY-MM-DD WA[INT]'
     elif re.search(r'IMG-\d{8}-WA\d{4}', currentFile.fileStem):
-        logger.warning(f'time stamp for file {currentFile.basename} is incomplete!'
+        logger.warning(f'time stamp of {currentFile.basename} is incomplete!'
                         'perhaps it is a WhatsApp file? '
                         'returning incomplete timestamp from file name...')
         return re.sub(
@@ -80,7 +80,7 @@ def timestamp_from_name(currentFile) -> str:
             )
     else:
         logger.info('no time stamp recoverable from file stem '
-                      f'of file {currentFile.fileStem}')
+                      f'of {currentFile.basename}')
         return ''
 
 def timestamp_from_exif(currentFile) -> str:
@@ -137,7 +137,7 @@ def timestamp_from_exif(currentFile) -> str:
                 return stamp
     except KeyError:
         logger.warning('no time stamp in exif data '
-                       'for file {}!'.format(currentFile.basename))
+                       'of {}!'.format(currentFile.basename))
         return ''
 
 def set_new_name(currentFile) -> str:
@@ -244,7 +244,9 @@ class MediaFile:
                           r'\1-\2-\3 \4-\5-\6',
                           timeStamp)
 
-        if self.timeStampExif == self.timeStampName != '':
+        if self.timeStampName == 'DO_NOT_PROCESS':
+            return self.timeStampName
+        elif self.timeStampExif == self.timeStampName != '':
             logger.debug(f'timestamps for {self.basename} are in agreement')
             return format_timeStamp(self.timeStampExif)
         elif self.timeStampExif == '' and self.timeStampName != '':
@@ -321,6 +323,8 @@ def main(args):
     for path in glob('*'):
         currentFile = MediaFile(basename=path, description=description)
         currentFile.timeStampName = timestamp_from_name(currentFile)
+        if currentFile.timeStampName == 'DO_NOT_PROCESS':
+            continue
         currentFile.timeStampExif = timestamp_from_exif(currentFile)
 
         basenameNew = set_new_name(currentFile)
