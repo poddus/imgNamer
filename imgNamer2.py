@@ -273,26 +273,23 @@ class MediaFile:
                             self.basename,
                             self.timeStampExif,
                             self.timeStampName))
-            match args.i:
-                case True:
-                    while True:
-                        choice = input('select timeStampExif with 1, timeStampName with 2: ')
-                        if choice in ['1', '2']:
-                            break
+
+            if args.i == True:
+                while True:
+                    choice = input('select timeStampExif with 1, timeStampName with 2: ')
                     if choice == '1':
                         return format_timeStamp(self.timeStampExif)
                     if choice == '2':
                         return format_timeStamp(self.timeStampName)
-                case False:
-                    if args.n:
-                        logger.debug('using timeStampName: {}'.format(
-                            self.timeStampName))
-                        return format_timeStamp(self.timeStampName)
-                    else:
-                        logger.debug('using timeStampExif: {}'.format(
-                            self.timeStampExif))
-                        return format_timeStamp(self.timeStampExif)
-            exit(70)
+            elif args.i == False:
+                if args.n:
+                    logger.debug('using timeStampName: {}'.format(
+                        self.timeStampName))
+                    return format_timeStamp(self.timeStampName)
+                else:
+                    logger.debug('using timeStampExif: {}'.format(
+                        self.timeStampExif))
+                    return format_timeStamp(self.timeStampExif)
 
 def parse_arguments():
     parser = ArgumentParser(description='rename images to the '
