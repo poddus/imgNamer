@@ -14,9 +14,9 @@ logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler())
 
 
-def timestamp_from_name(currentFile) -> str:
+def get_timestamp_from_name(currentFile) -> str:
     """attempt to regex a datetime from the fileStem
-       TODO: extract any trailing str and pass it to description
+    TODO: extract any trailing str and optinally pass it to description
     """
 
     # additional tests for common sources for debugging purposes
@@ -30,7 +30,7 @@ def timestamp_from_name(currentFile) -> str:
         elif currentFile.fileType == 'mp4' and re.search(r'^IMG_\d{4}', currentFile.fileStem):
             logger.warning(f'{currentFile.basename} is probably '
                           'from an iPhone with "Live Photo" function enabled. '
-                          'these video files may have erroneous exif data!')
+                          'these video files may have erroneous metadata!')
 
     # timestamp name without 3-letter prefix.
     # this is the default for most android distros
@@ -83,11 +83,10 @@ def timestamp_from_name(currentFile) -> str:
                       f'of {currentFile.basename}')
         return ''
 
-def timestamp_from_exif(currentFile) -> str:
+def get_timestamp_from_metadata(currentFile) -> str:
     try:
         match currentFile.fileType:
             case 'jpg':
-                # read image (binary mode), get EXIF info
                 binImage = open(currentFile.basename, 'rb')
 
                 tags = exifread.process_file(binImage)
@@ -96,6 +95,7 @@ def timestamp_from_exif(currentFile) -> str:
                 stamp = re.sub(' ', '', str(stamp))
 
                 return stamp
+
             case 'avi':
                 tags = subprocess.run(
                     [
@@ -115,6 +115,7 @@ def timestamp_from_exif(currentFile) -> str:
                 time = re.sub(r'\D', '', time)
 
                 return date + time
+
             case 'mp4':
                 tags = subprocess.run(
                 [
@@ -135,15 +136,17 @@ def timestamp_from_exif(currentFile) -> str:
                 stamp = re.sub(r'\D', '', stamp)
 
                 return stamp
+
     except KeyError:
-        logger.warning('no time stamp in exif data '
+        logger.warning('no time stamp in metadata '
                        'of {}!'.format(currentFile.basename))
         return ''
 
 def set_new_name(currentFile) -> str:
     """checks for files with the same basename (i.e. same creation time)
-       and generates a new basename accordingly.
-       will append a 2 digit counter to timestamp
+    and generates a new basename accordingly.
+    will append a 2 digit counter to timestamp if a file of the
+    same name already exists.
     """
 
     # we only need to evaluate the time stamps once
@@ -166,8 +169,8 @@ def set_new_name(currentFile) -> str:
     else:
         logger.info(f'{candidateBasename} already exists. appending counter...')
 
-        # get list of files in current working directory
-        # increment counter until a candidate is generated that
+        # get list of files in current working directory 
+        # increment counter until a candidate is generated that 
         # doesn't yet exist
         cwd = os.getcwd()
         ls = set(os.listdir(cwd))
@@ -180,15 +183,16 @@ def set_new_name(currentFile) -> str:
                 currentFile.fileExtension
                 )
 
-        # special case where we append 00 to the existing file
-        # and 01 to the current file
+        # special case for first collision where we append 
+        # 00 to the existing file and 
+        # 01 to the current file
         if not os.path.exists(candidateBasename00):
             logger.info('renaming existing file {} -> {}'.format(
                          candidateBasename,
                          candidateBasename00))
             os.rename(candidateBasename, candidateBasename00)
             candidateBasename = increment_candidate()
-            # returns candidateBasename 01
+            # returns "candidateBasename 01"
             return candidateBasename
 
         # for all other cases where the counter will be greater than 01
@@ -199,22 +203,22 @@ def set_new_name(currentFile) -> str:
             index += 1
         return candidateBasename
 
-################################################################################
+####################################################################################################
 
 @dataclass(kw_only=True, slots=True)
 class MediaFile:
-    # a word on terminology as used here:
-    # the 'basename' is the file name including extension
-    # the 'fileStem' is the file name without the extension
-    # the 'fileRelativePath' is the path from the current dir
-    # the 'fileAbsolutePath' is the path from the filesystem root
+    """Represents a jpeg, avi, or mp4 file with its time stamp and description.
+    a word on terminology as used here:
+    the 'basename' is the file name including extension
+    the 'fileStem' is the file name without the extension
+    """
     basename: str
     description: str
 
     fileStem: str = ''
     fileExtension: str = ''
     fileType: str = ''
-    timeStampExif: str = ''
+    timeStampMetadata: str = ''
     timeStampName: str = ''
 
     __JPG = ['.jpg', '.JPG', '.jpeg', '.JPEG']
@@ -236,71 +240,73 @@ class MediaFile:
             exit(1)
 
     def return_timeStamp(self) -> str:
-        """Verifies timeStamps from Name and Exif Data and
+        """Verifies timeStamps from Name and Metadata and
         (ideally) returns a single formatted time stamp.
         """
-        def format_timeStamp(timeStamp: str) -> str:
+        def _format_timeStamp(timeStamp: str) -> str:
             return re.sub(r'(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})',
                           r'\1-\2-\3 \4-\5-\6',
                           timeStamp)
 
         if self.timeStampName == 'DO_NOT_PROCESS':
             return self.timeStampName
-        elif self.timeStampExif == self.timeStampName != '':
+        elif self.timeStampMetadata == self.timeStampName != '':
             logger.debug(f'timestamps for {self.basename} are in agreement')
-            return format_timeStamp(self.timeStampExif)
-        elif self.timeStampExif == '' and self.timeStampName != '':
-            logger.warning(f'no time stamp from Exif data for file {self.basename}. '
+            return _format_timeStamp(self.timeStampMetadata)
+        elif self.timeStampMetadata == '' and self.timeStampName != '':
+            logger.warning(f'no time stamp from metadata for file {self.basename}. '
                             'defaulting to time stamp from basename...')
-            return format_timeStamp(self.timeStampName)
-        elif self.timeStampExif != '' and self.timeStampName == '':
+            return _format_timeStamp(self.timeStampName)
+        elif self.timeStampMetadata != '' and self.timeStampName == '':
             logger.warning(f'no time stamp from basename for file {self.basename}. '
-                            'defaulting to time stamp from exif data...')
-            return format_timeStamp(self.timeStampExif)
-        elif self.timeStampExif == self.timeStampName == '':
+                            'defaulting to time stamp from metadata...')
+            return _format_timeStamp(self.timeStampMetadata)
+        elif self.timeStampMetadata == self.timeStampName == '':
             logger.critical('no valid timestamp for {}!\n'
                             'timeStampName: {}\n'
-                            'timeStampExif: {}'.format(
+                            'timeStampMetadata {}'.format(
                             self.basename,
                             self.timeStampName,
-                            self.timeStampExif))
+                            self.timeStampMetadata))
             exit(1)
         else:
-            logger.warning('time stamps from basename and exif data do not match '
+            logger.warning('time stamps from basename and metadata do not match '
                            'for file {}. it has the following timestamps:\n'
-                           'timeStampExif: {}\n'
+                           'timeStampMetadata: {}\n'
                            'timeStampName: {}'.format(
                             self.basename,
-                            self.timeStampExif,
+                            self.timeStampMetadata,
                             self.timeStampName))
 
             if args.i == True:
                 while True:
-                    choice = input('select timeStampExif with 1, timeStampName with 2: ')
+                    choice = input('select timeStampMetadata with 1, timeStampName with 2: ')
                     if choice == '1':
-                        return format_timeStamp(self.timeStampExif)
+                        return _format_timeStamp(self.timeStampMetadata)
                     if choice == '2':
-                        return format_timeStamp(self.timeStampName)
+                        return _format_timeStamp(self.timeStampName)
             elif args.i == False:
                 if args.n:
                     logger.debug('using timeStampName: {}'.format(
                         self.timeStampName))
-                    return format_timeStamp(self.timeStampName)
+                    return _format_timeStamp(self.timeStampName)
                 else:
-                    logger.debug('using timeStampExif: {}'.format(
-                        self.timeStampExif))
-                    return format_timeStamp(self.timeStampExif)
+                    logger.debug('using timeStampMetadata: {}'.format(
+                        self.timeStampMetadata))
+                    return _format_timeStamp(self.timeStampMetadata)
 
 def parse_arguments():
-    parser = ArgumentParser(description='rename images to the '
-    'format YYYY-MM-DD hh-mm-ss Description.')
+    parser = ArgumentParser(description='This program renames media files to the '
+    'format "YYYY-MM-DD hh-mm-ss Description" based on timestamps gleaned from name and metadata. '
+    'The ISO 8601 format is not particularly human readable without delimiters and '
+    'the standard time delimiter ":" is not allowed in file names. This format is a compromise.')
     parser.add_argument('folder', help='folder to parse')
     timeStampChoice = parser.add_mutually_exclusive_group()
-    timeStampChoice.add_argument('-i', action='store_true', help='manually choose datetime '
-                        'when the choice is ambiguous')
-    timeStampChoice.add_argument('-n', action='store_true', help='prefer time stamp '
-                        'derived from name when the choice is ambiguous. '
-                        'by default the exif data will be used. '
+    timeStampChoice.add_argument('-i', action='store_true', help='manually choose '
+                        'timestamp when the choice is ambiguous')
+    timeStampChoice.add_argument('-n', action='store_true', help='prefer timestamp derived '
+                        'from name when the choice is ambiguous. '
+                        'by default the metadata will be used. '
                         'only works in standard (non-interactive) mode.')
     
     return parser.parse_args()
@@ -319,10 +325,10 @@ def main(args):
     # glob returns only regular files, not dot files
     for path in glob('*'):
         currentFile = MediaFile(basename=path, description=description)
-        currentFile.timeStampName = timestamp_from_name(currentFile)
+        currentFile.timeStampName = get_timestamp_from_name(currentFile)
         if currentFile.timeStampName == 'DO_NOT_PROCESS':
             continue
-        currentFile.timeStampExif = timestamp_from_exif(currentFile)
+        currentFile.timeStampMetadata = get_timestamp_from_metadata(currentFile)
 
         basenameNew = set_new_name(currentFile)
 
