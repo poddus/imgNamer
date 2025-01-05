@@ -306,6 +306,8 @@ def parse_arguments():
     parser.add_argument('-s', action='store_true', help='strict mode, only accepts '
         'characters unreserved for URIs, i.e. '
         'ALPHA / DIGIT / "-" / "." / "_" / "~". (see RFC 3986 Section 2.3)')
+    parser.add_argument('--rename', action='store_true', help='actually rename files. '
+        'without this flag the program does a dry run but leaves out the actual write operation')
     timeStampChoice = parser.add_mutually_exclusive_group()
     timeStampChoice.add_argument('-i', action='store_true', help='manually choose '
                         'timestamp when the choice is ambiguous')
@@ -321,7 +323,7 @@ def _get_description(strictMode: bool) -> str:
         description = input('Enter a description of the pictures '
         '(may be blank), then press Return: ')
         if strictMode:
-            if re.fullmatch(r'[a-zA-Z0-9\-._~]+', description):
+            if re.fullmatch(r'[a-zA-Z0-9\-._~]+', description) or description == '':
                 print('')
                 break
             else:
@@ -346,6 +348,11 @@ def _get_description(strictMode: bool) -> str:
 def main(args):
     os.chdir(args.folder)
 
+    if not args.rename:
+        logger.info('dry-run mode, files will not be renamed.')
+    else:
+        logger.warning('renaming mode, FILES WILL BE RENAMED!')
+
     description = _get_description(args.s)
 
     # glob returns only regular files, not dot files
@@ -358,8 +365,12 @@ def main(args):
 
         basenameNew = set_new_name(currentFile)
 
-        logger.debug('renaming {} -> {}\n'.format(currentFile.basename, basenameNew))
-        os.rename(path, basenameNew)
+        if args.rename:
+            logger.debug('renaming {} -> {}\n'.format(currentFile.basename, basenameNew))
+            os.rename(path, basenameNew)
+        else:
+            logger.info('suggested name change {} -> {}\n'.format(
+                currentFile.basename, basenameNew))
 
 if __name__ == '__main__':
     args = parse_arguments()
