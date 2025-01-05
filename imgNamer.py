@@ -60,7 +60,7 @@ def get_timestamp_from_name(currentFile) -> str:
             r'\1\2\3\4\5\6',
             currentFile.fileStem)
     # already processed by current script (hyphens in time)
-    elif re.search(r'^\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}', currentFile.fileStem):
+    elif re.search(r'^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}', currentFile.fileStem):
         logger.info(f'{currentFile.basename} has probably '
                       'already been processed by this script previously. '
                       'this file will not be processed further.\n')
@@ -158,7 +158,7 @@ def set_new_name(currentFile) -> str:
                         currentFile.fileExtension
                         )
 
-    candidateBasename00 = '{} 00{}{}'.format(
+    candidateBasename00 = '{}_00{}{}'.format(
                           finalTimeStamp,
                           currentFile.description,
                           currentFile.fileExtension
@@ -176,7 +176,7 @@ def set_new_name(currentFile) -> str:
         ls = set(os.listdir(cwd))
         index = 1
         def increment_candidate() -> str:
-            return '{} {}{}{}'.format(
+            return '{}_{}{}{}'.format(
                 finalTimeStamp,
                 str(index).zfill(2),
                 currentFile.description,
@@ -245,7 +245,7 @@ class MediaFile:
         """
         def _format_timeStamp(timeStamp: str) -> str:
             return re.sub(r'(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})',
-                          r'\1-\2-\3 \4-\5-\6',
+                          r'\1-\2-\3_\4-\5-\6',
                           timeStamp)
 
         if self.timeStampName == 'DO_NOT_PROCESS':
@@ -297,8 +297,8 @@ class MediaFile:
 
 def parse_arguments():
     parser = ArgumentParser(description='This program renames media files to the '
-    'format "YYYY-MM-DD hh-mm-ss Description" based on timestamps gleaned from name and metadata. '
-    'The ISO 8601 format is not particularly human readable without delimiters and '
+    'format "YYYY-MM-DD_hh-mm-ss[_00] Description" based on timestamps gleaned from name and metadata. '
+    'The ISO 8601 format is not particularly human-readable without delimiters and '
     'the standard time delimiter ":" is not allowed in file names. This format is a compromise.')
     parser.add_argument('folder', help='folder to parse')
     timeStampChoice = parser.add_mutually_exclusive_group()
