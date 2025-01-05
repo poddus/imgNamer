@@ -327,11 +327,12 @@ def _get_description(strictMode: bool) -> str:
             else:
                 print('only ALPHA / DIGIT / "-" / "." / "_" / "~" are allowed in strict mode!')
         else:
-            if not re.search(r'[/:␀"]+', description):
+            # it appears as though we don't need to worry about null chars \0 when using input()
+            if not re.search(r'[/:\'"]+', description):
                 print('')
                 break
             else:
-                print('do not use these characters because they tend to break stuff ->  / : ␀ "')
+                print('do not use these characters because they tend to break stuff ->  / : \' "')
 
     # we want a leading underscore or space, except when the description is blank
     if description == '':
