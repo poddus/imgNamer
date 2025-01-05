@@ -278,14 +278,14 @@ class MediaFile:
                             self.timeStampMetadata,
                             self.timeStampName))
 
-            if args.i == True:
+            if args.i:
                 while True:
                     choice = input('select timeStampMetadata with 1, timeStampName with 2: ')
                     if choice == '1':
                         return _format_timeStamp(self.timeStampMetadata)
                     if choice == '2':
                         return _format_timeStamp(self.timeStampName)
-            elif args.i == False:
+            else:
                 if args.n:
                     logger.debug('using timeStampName: {}'.format(
                         self.timeStampName))
@@ -297,10 +297,15 @@ class MediaFile:
 
 def parse_arguments():
     parser = ArgumentParser(description='This program renames media files to the '
-    'format "YYYY-MM-DD_hh-mm-ss[_00] Description" based on timestamps gleaned from name and metadata. '
-    'The ISO 8601 format is not particularly human-readable without delimiters and '
-    'the standard time delimiter ":" is not allowed in file names. This format is a compromise.')
-    parser.add_argument('folder', help='folder to parse')
+        'format "YYYY-MM-DD_hh-mm-ss[_00] Description" based on timestamps gleaned '
+        'from name and metadata. The ISO 8601 format is not particularly human-readable without '
+        'delimiters and the standard time delimiter ":" is not allowed in file names. '
+        'This format is a compromise. There is also a strict mode which '
+        'enforces "web-friendly" filenames.')
+    parser.add_argument('folder', help='folder to parse, for example the current directory: ./')
+    parser.add_argument('-s', action='store_true', help='strict mode, only accepts '
+        'characters unreserved for URIs, i.e. '
+        'ALPHA / DIGIT / "-" / "." / "_" / "~". (see RFC 3986 Section 2.3)')
     timeStampChoice = parser.add_mutually_exclusive_group()
     timeStampChoice.add_argument('-i', action='store_true', help='manually choose '
                         'timestamp when the choice is ambiguous')
@@ -311,16 +316,36 @@ def parse_arguments():
     
     return parser.parse_args()
 
+def _get_description(strictMode: bool) -> str:
+    while True:
+        description = input('Enter a description of the pictures '
+        '(may be blank), then press Return: ')
+        if strictMode:
+            if re.fullmatch(r'[a-zA-Z0-9\-._~]+', description):
+                print('')
+                break
+            else:
+                print('only ALPHA / DIGIT / "-" / "." / "_" / "~" are allowed in strict mode!')
+        else:
+            if not re.search(r'[/:␀"]+', description):
+                print('')
+                break
+            else:
+                print('do not use these characters because they tend to break stuff ->  / : ␀ "')
+
+    # we want a leading underscore or space, except when the description is blank
+    if description == '':
+        return description
+    else:
+        if strictMode:
+            return '_' + description
+        else:
+            return ' ' + description
+
 def main(args):
     os.chdir(args.folder)
 
-    description = input('Enter a description of the pictures '
-    '(may be blank), then press Return: ')
-    print('')
-
-    # we want a leading space, except when the description is blank
-    if description != '':
-        description = ' ' + description
+    description = _get_description(args.s)
 
     # glob returns only regular files, not dot files
     for path in glob('*'):
